@@ -1,102 +1,112 @@
 <script setup>
-import { Check } from '@lucide/vue';
 import { ref } from 'vue';
 
-const props = defineProps(['type']);
-const emit = defineEmits(['close', 'confirm']);
-const modalOverlay = ref(null);
+const props = defineProps(['type', 'modelValue']);
+const emit = defineEmits(['update:modelValue', 'confirm']);
 const discountType = ref('%');
+const namaDiskon = ref('');
+const nilaiDiskon = ref(null);
 
-const handleOutsideClick = (event) => {
-    if (event.target === modalOverlay.value) {
-        emit('close');
-    }
-};
+const close = () => emit('update:modelValue', false);
 </script>
 
 <template>
-    <div ref="modalOverlay" @click="handleOutsideClick"
-        class="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-        <div class="bg-white p-6 rounded-2xl w-full max-w-sm shadow-xl">
+    <v-dialog :model-value="modelValue" @update:model-value="emit('update:modelValue', $event)" max-width="460" rounded="xl">
+        <v-card rounded="xl" class="pa-6">
 
+            <!-- HAPUS -->
             <template v-if="props.type === 'hapus'">
-                <h3 class="font-bold text-lg mb-2">Hapus Diskon</h3>
-                <p class="text-sm text-gray-600 mb-6">Apakah Anda yakin ingin menghapus diskon ini? Data tidak bisa
-                    dikembalikan.</p>
-                <div class="flex gap-3">
-                    <button @click="$emit('close')"
-                        class="flex-1 border py-2 rounded-lg hover:bg-gray-100">Batalkan</button>
-                    <button @click="$emit('confirm')"
-                        class="flex-1 bg-red-500 text-white py-2 rounded-lg hover:bg-red-600">Hapus</button>
-                </div>
+                <v-card-title class="pa-0 mb-2 text-h6 font-weight-bold">Hapus Diskon</v-card-title>
+                <v-card-text class="pa-0 mb-6 text-body-2 text-medium-emphasis">
+                    Apakah Anda yakin ingin menghapus diskon ini? Data tidak bisa dikembalikan.
+                </v-card-text>
+                <v-row no-gutters class="gap-3">
+                    <v-col>
+                        <v-btn variant="outlined" color="grey" block rounded="lg" @click="close">
+                            Batalkan
+                        </v-btn>
+                    </v-col>
+                    <v-col>
+                        <v-btn color="error" block rounded="lg" @click="$emit('confirm')">
+                            Hapus
+                        </v-btn>
+                    </v-col>
+                </v-row>
             </template>
 
+            <!-- TAMBAH / UBAH -->
             <template v-else>
-                <div class="flex items-center justify-between mb-5">
-                    <h3 class="font-bold text-lg">{{ props.type === 'tambah' ? 'Tambah' : 'Ubah' }} Diskon</h3>
-                    <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                <div class="d-flex align-center justify-space-between mb-5">
+                    <span class="text-h6 font-weight-bold">
+                        {{ props.type === 'tambah' ? 'Tambah' : 'Ubah' }} Diskon
+                    </span>
+                    <v-btn icon="mdi-close" variant="plain" density="compact" @click="close" />
                 </div>
 
-                <!-- Nama Diskon -->
-                <div class="relative border rounded-lg mb-4 focus-within:ring-2 focus-within:ring-green-500">
-                    <span class="absolute left-3 top-2 text-xs text-gray-400">Nama Diskon</span>
-                    <input
-                        class="w-full pt-6 pb-2 px-3 rounded-lg outline-none text-sm bg-transparent"
-                        placeholder="Misal: Diskon opening, diskon akhir tahun"
+                <v-text-field
+                    v-model="namaDiskon"
+                    label="Nama Diskon"
+                    placeholder="Misal: Diskon opening, diskon akhir tahun"
+                    variant="outlined"
+                    rounded="lg"
+                    density="comfortable"
+                    color="success"
+                    class="mb-2"
+                />
+
+                <div class="d-flex align-center ga-sm-4 mb-6">
+                    <v-text-field
+                        v-model="nilaiDiskon"
+                        label="Diskon"
+                        placeholder="0"
+                        variant="outlined"
+                        rounded="lg"
+                        density="comfortable"
+                        color="success"
+                        type="number"
+                        :suffix="discountType === '%' ? '%' : ''"
+                        hide-details
+                        class="flex-grow-1"
                     />
+
+                    <v-btn-toggle
+                        v-model="discountType"
+                        mandatory
+                        rounded="lg"
+                        style="height: 30px; border: 1px solid rgba(0,0,0,0.23);"
+                        class="overflow-hidden"
+                    >
+                        <v-btn
+                            value="%"
+                            variant="text"
+                            :color="discountType === '%' ? 'success' : 'default'"
+                            :class="discountType === '%' ? 'bg-green-lighten-5' : ''"
+                            class="px-3"
+                            style="height: 100%;"
+                        >
+                            <v-icon v-if="discountType === '%'" start size="16">mdi-check</v-icon>
+                            %
+                        </v-btn>
+                        <v-divider vertical />
+                        <v-btn
+                            value="Rp"
+                            variant="text"
+                            :color="discountType === 'Rp' ? 'success' : 'default'"
+                            :class="discountType === 'Rp' ? 'bg-green-lighten-5' : ''"
+                            class="px-3"
+                            style="height: 100%;"
+                        >
+                            <v-icon v-if="discountType === 'Rp'" start size="16">mdi-check</v-icon>
+                            Rp
+                        </v-btn>
+                    </v-btn-toggle>
                 </div>
 
-                <!-- Diskon -->
-                <div class="mb-6">
-                    <div class="flex gap-2 items-center">
-                        <div class="relative flex-1 border rounded-lg focus-within:ring-2 focus-within:ring-green-500">
-                            <span class="absolute left-3 top-2 text-xs text-gray-400">Diskon</span>
-                            <div class="flex items-center pt-6 pb-2 px-3">
-                                <input
-                                    class="flex-1 outline-none text-sm bg-transparent w-0"
-                                    type="number"
-                                    placeholder="0"
-                                />
-                                <span class="text-sm text-gray-400 ml-1">{{ discountType === '%' ? '%' : '' }}</span>
-                            </div>
-                        </div>
-
-                        <!-- Toggle % / Rp -->
-                        <div class="flex border rounded-lg overflow-hidden h-fit">
-                            <button
-                                @click="discountType = '%'"
-                                :class="[
-                                    'flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors',
-                                    discountType === '%'
-                                        ? 'bg-green-50 text-green-600 border-green-300'
-                                        : 'text-gray-500 hover:bg-gray-50'
-                                ]"
-                            >
-                                <Check v-if="discountType === '%'" class="w-4 h-4 text-green-500" />
-                                %
-                            </button>
-                            <div class="w-px bg-gray-200"></div>
-                            <button
-                                @click="discountType = 'Rp'"
-                                :class="[
-                                    'flex items-center gap-1 px-3 py-2 text-sm font-medium transition-colors',
-                                    discountType === 'Rp'
-                                        ? 'bg-green-50 text-green-600'
-                                        : 'text-gray-500 hover:bg-gray-50'
-                                ]"
-                            >
-                                <Check v-if="discountType === 'Rp'" class="w-4 h-4 text-green-500" />
-                                Rp
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <button @click="$emit('confirm')" class="w-full bg-green-500 hover:bg-green-600 text-white py-3 rounded-xl font-medium transition-colors">
+                <v-btn color="success" block rounded="xl" size="large" @click="$emit('confirm')">
                     Simpan
-                </button>
+                </v-btn>
             </template>
 
-        </div>
-    </div>
+        </v-card>
+    </v-dialog>
 </template>
