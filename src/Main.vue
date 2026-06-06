@@ -73,8 +73,7 @@
 import { ref, reactive, computed, onMounted } from "vue";
 import DiscountModal from "./components/DiscountModal.vue";
 
-const API_URL =
-  "https://crudcrud.com/api/eccc8c0fbe1c411d9a0d6628fd382a11/discounts";
+const API_URL = import.meta.env.VITE_API_URL;
 
 const isModalOpen = ref(false);
 const modalType = ref("");
