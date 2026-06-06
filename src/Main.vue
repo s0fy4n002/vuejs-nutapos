@@ -170,7 +170,6 @@ const searchQuery = ref('');
 
 const isOutletModalOpen = ref(false);
 const selectedOutlet = ref(null);
-const selectedMerchantId = ref(null);
 
 const outletList = ref([
   { id: 1, name: 'Dapoer Rasa', address: 'Jl. Asia Afrika No. 25' },
@@ -413,8 +412,8 @@ const filteredDiscounts = computed(() => {
   }
 
   // Filter berdasarkan ID yang dipilih dari dropdown
-  if (selectedMerchantId.value) {
-    result = result.filter(item => item.merchant_id === selectedMerchantId.value);
+  if (selectedOutlet.value) {
+    result = result.filter(item => item.outlet_id === selectedOutlet.value.id);
   }
 
   return result;
