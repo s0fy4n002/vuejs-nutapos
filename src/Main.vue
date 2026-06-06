@@ -3,11 +3,13 @@
     <v-main class="bg-grey-lighten-4">
       <v-container class="py-8">
         <v-card rounded="xl" elevation="0" class="border border-grey-lighten-2">
-          <v-card-text class="pa-6">
+          <v-card-text class="pa-6" v-if="selectedMerchantId">
+
             <div class="d-flex justify-space-between align-center mb-6">
               <div>
                 <h1 class="text-title-large font-weight-bold ma-0">Daftar Diskon</h1>
-                <p class="text-title-small text-grey-lighten-1 ma-0">Total Jumlah diskon: {{ discounts.length }}</p>
+                <p class="text-title-small text-grey-lighten-1 ma-0">Total Jumlah diskon: {{ filteredDiscounts.length }}
+                </p>
               </div>
 
               <div v-if="selectedIds.length > 0" class="d-flex ga-3">
@@ -20,16 +22,49 @@
                 </v-btn>
               </div>
 
-              <v-btn v-else color="success" rounded="xl" size="small" class="pa-4" @click="openModal('tambah')">
+              <v-btn v-else v-if="filteredDiscounts.length > 0" color="success" rounded="xl" class="px-6"
+                @click="openModal('tambah')">
                 <v-icon icon="mdi-plus" start></v-icon>
                 Tambah diskon
               </v-btn>
 
             </div>
 
-            <v-data-table v-model="selectedIds" :page="page" :headers="headers" :items="discounts"
-              :items-per-page="itemsPerPage" item-value="id" show-select color="success" return-object
-              :loading="isLoading" loading-text="Sedang memuat data diskon...">
+            <div class="d-flex flex-column flex-sm-row ga-4 mb-6">
+              <v-text-field v-if="filteredDiscounts.length > 0" v-model="searchQuery" placeholder="Cari nama diskon..."
+                prepend-inner-icon="mdi-magnify" variant="outlined" density="compact" hide-details rounded="lg"
+                clearable class=""></v-text-field>
+
+              <v-autocomplete v-model="selectedMerchantId" :items="merchantList" item-title="name" item-value="id"
+                placeholder="Pilih Merchant" prepend-inner-icon="mdi-storefront-outline" variant="outlined"
+                density="compact" hide-details rounded="lg" clearable
+                style="min-width: 250px; max-width: 300px;"></v-autocomplete>
+            </div>
+
+            <template v-if="!isLoading && filteredDiscounts.length === 0">
+              <div class="d-flex flex-column align-center justify-center py-16">
+
+                <img src="/discount_not_available.svg" alt="Ilustrasi Kosong" width="250" class="mb-6" />
+
+                <span class="text-h6 font-weight-bold mb-2 text-black">
+                  Belum Ada Diskon
+                </span>
+
+                <p class="text-body-2 text-medium-emphasis text-center mb-6" style="max-width: 350px;">
+                  Silahkan tambah diskon untuk menarik pelanggan dan meningkatkan penjualan.
+                </p>
+
+                <v-btn color="success" rounded="xl" class="px-6" @click="openModal('tambah')">
+                  <v-icon icon="mdi-plus" start></v-icon>
+                  Tambah diskon
+                </v-btn>
+
+              </div>
+            </template>
+
+            <v-data-table v-if="!isLoading && filteredDiscounts.length > 0" v-model="selectedIds" :page="page"
+              :headers="headers" :items="filteredDiscounts" :items-per-page="itemsPerPage" item-value="id" show-select
+              color="success" return-object :loading="isLoading" loading-text="Sedang memuat data diskon...">
               <template #item.actions="{ item }">
                 <v-btn icon="mdi-pencil-outline" variant="plain" density="compact" color="grey"
                   @click="openModal('ubah', item)" />
@@ -50,13 +85,38 @@
             </v-data-table>
 
           </v-card-text>
+
+          <v-card-text class="pa-6" v-else>
+
+            <div class="d-flex justify-space-between align-center mb-6">
+              <h1 class="text-title-large font-weight-bold ma-0">Daftar Diskon</h1>
+            </div>
+
+            <div class="d-flex flex-column align-center justify-center py-16">
+
+              <img src="/outlet-notfound.svg" alt="Ilustrasi Pilih Merchant" width="250" class="mb-6" />
+
+              <span class="text-h6 font-weight-bold mb-2 text-black">
+                Belum ada Outlet yang dipilih
+              </span>
+
+              <p class="text-body-2 text-medium-emphasis text-center mb-6" style="max-width: 350px;">
+                Silahkan pilih outlet terlebih dahulu
+              </p>
+
+              <v-btn color="success" variant="tonal" rounded="xl" class="px-6">
+                Pilih outlet
+              </v-btn>
+
+            </div>
+          </v-card-text>
         </v-card>
       </v-container>
     </v-main>
 
     <DiscountModal v-model="isModalOpen" :form-data="formData" :type="modalType" @confirm="handleSaveOrUpdate"
       @delete="deleteData" />
-      
+
     <DeleteModal v-model="isDeleteModalOpen" :count="selectedIds.length"
       :item-name="selectedIds.length === 1 ? selectedIds[0].name : ''" @confirm="handleBulkDelete" />
 
@@ -77,7 +137,10 @@ import { ref, reactive, computed, onMounted } from "vue";
 import DiscountModal from "./components/DiscountModal.vue";
 import DeleteModal from "./components/DeleteModal.vue";
 
-const API_URL = import.meta.env.VITE_API_URL;
+const BASE_API = import.meta.env.VITE_API_URL.replace(/\/discounts$/, '').replace(/\/merchants$/, '');
+
+const DISCOUNT_API_URL = `${BASE_API}/discounts`;
+const MERCHANT_API_URL = `${BASE_API}/merchants`;
 
 const isModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
@@ -86,6 +149,17 @@ const selectedIds = ref([]);
 const page = ref(1);
 const itemsPerPage = ref(3);
 const isLoading = ref(false); // State untuk indikator loading
+const searchQuery = ref('');
+const selectedMerchant = ref(null);
+const selectedMerchantId = ref(null);
+
+const merchantList = ref([
+  { id: 1, name: 'Toko Abadi' },
+  { id: 2, name: 'Warung Madani' },
+  { id: 3, name: 'Kopi Senja' },
+  { id: 4, name: 'Supermart' }
+]);
+
 
 const formData = reactive({ id: null, name: "", value: "", type: "%" });
 const snackbar = reactive({
@@ -109,16 +183,15 @@ const headers = [
 // Kosongkan array awal
 const discounts = ref([]);
 
-
 const totalPages = computed(() =>
-  Math.ceil(discounts.value.length / itemsPerPage.value),
+  Math.ceil(filteredDiscounts.value.length / itemsPerPage.value),
 );
 
 // Fungsi untuk mengambil data dari crudcrud
 const fetchDiscounts = async () => {
   isLoading.value = true;
   try {
-    const response = await fetch(API_URL);
+    const response = await fetch(DISCOUNT_API_URL);
     if (!response.ok) {
       throw new Error("Gagal mengambil data dari server");
     }
@@ -140,6 +213,7 @@ const fetchDiscounts = async () => {
 // Panggil fetchDiscounts saat komponen di-mount
 onMounted(() => {
   fetchDiscounts();
+  fetchMerchants();
 });
 
 const openModal = (type, item = null) => {
@@ -162,7 +236,7 @@ const handleSaveOrUpdate = async (payload) => {
       // ==========================================
       // 1. LOGIKA TAMBAH DATA (POST)
       // ==========================================
-      const response = await fetch(API_URL, {
+      const response = await fetch(DISCOUNT_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -194,7 +268,7 @@ const handleSaveOrUpdate = async (payload) => {
         throw new Error("ID data tidak ditemukan");
       }
 
-      const response = await fetch(`${API_URL}/${id}`, {
+      const response = await fetch(`${DISCOUNT_API_URL}/${id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -241,7 +315,7 @@ const deleteData = async (payload) => {
 
   isLoading.value = true;
   try {
-    const response = await fetch(`${API_URL}/${payload.id}`, {
+    const response = await fetch(`${DISCOUNT_API_URL}/${payload.id}`, {
       method: 'DELETE'
     });
 
@@ -269,8 +343,6 @@ const deleteData = async (payload) => {
   }
 };
 
-
-
 // Fungsi untuk menghapus banyak data sekaligus (Bulk Delete)
 const handleBulkDelete = async () => {
 
@@ -278,10 +350,9 @@ const handleBulkDelete = async () => {
   try {
     // Karena crudcrud tidak punya endpoint hapus massal, kita hapus satu per satu secara paralel
     const deletePromises = selectedIds.value.map(item =>
-      fetch(`${API_URL}/${item.id}`, { method: 'DELETE' })
+      fetch(`${DISCOUNT_API_URL}/${item.id}`, { method: 'DELETE' })
     );
 
-    // Tunggu semua proses hapus selesai
     const responses = await Promise.all(deletePromises);
 
     // Cek apakah ada request yang gagal
@@ -307,6 +378,72 @@ const handleBulkDelete = async () => {
   } finally {
     isDeleteModalOpen.value = false;
     isLoading.value = false;
+  }
+};
+
+const filteredDiscounts = computed(() => {
+  let result = discounts.value;
+
+  if (searchQuery.value) {
+    const query = searchQuery.value.toLowerCase();
+    result = result.filter(item =>
+      item.name && item.name.toLowerCase().includes(query)
+    );
+  }
+
+  // Filter berdasarkan ID yang dipilih dari dropdown
+  if (selectedMerchantId.value) {
+    result = result.filter(item => item.merchant_id === selectedMerchantId.value);
+  }
+
+  return result;
+});
+
+// 4. Fungsi bantuan (Helper) untuk mengubah merchant_id menjadi Nama Merchant di tabel
+const getMerchantName = (id) => {
+  const merchant = merchantList.value.find(m => m.id === id);
+  return merchant ? merchant.name : '-';
+};
+
+const handleAddMerchant = async (newMerchantName) => {
+  const name = newMerchantName.trim();
+  if (!name || !BASE_API) return;
+
+  isLoading.value = true;
+  try {
+    const response = await fetch(MERCHANT_API_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name })
+    });
+
+    if (!response.ok) throw new Error("Gagal membuat merchant");
+
+    const newMerchantData = await response.json();
+    const createdMerchant = { id: newMerchantData._id, name: newMerchantData.name };
+
+    merchantList.value.push(createdMerchant);
+    selectedMerchantId.value = createdMerchant.id;
+
+    snackbar.text = `Merchant "${createdMerchant.name}" ditambahkan!`;
+    snackbar.color = 'success';
+    snackbar.show = true;
+  } catch (error) {
+    console.error("Error adding merchant:", error);
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const fetchMerchants = async () => {
+  if (!BASE_API) return;
+  try {
+    const response = await fetch(MERCHANT_API_URL);
+    if (!response.ok) throw new Error("Gagal mengambil data merchant");
+    const data = await response.json();
+    merchantList.value = data.map(item => ({ id: item._id, name: item.name }));
+  } catch (error) {
+    console.error("Error fetching merchants:", error);
   }
 };
 
