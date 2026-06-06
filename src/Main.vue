@@ -14,7 +14,7 @@
                 <v-btn variant="outlined" color="grey" rounded="lg" size="small" @click="selectedIds = []">
                   Batalkan
                 </v-btn>
-                <v-btn color="error" rounded="lg" size="small" @click="handleBulkDelete">
+                <v-btn color="error" rounded="lg" size="small" @click="isDeleteModalOpen = true">
                   <v-icon icon="mdi-delete" start></v-icon>
                   Hapus
                 </v-btn>
@@ -56,6 +56,9 @@
 
     <DiscountModal v-model="isModalOpen" :form-data="formData" :type="modalType" @confirm="handleSaveOrUpdate"
       @delete="deleteData" />
+      
+    <DeleteModal v-model="isDeleteModalOpen" :count="selectedIds.length"
+      :item-name="selectedIds.length === 1 ? selectedIds[0].name : ''" @confirm="handleBulkDelete" />
 
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" location="top center" rounded="0">
       {{ snackbar.text }}
@@ -72,10 +75,12 @@
 <script setup>
 import { ref, reactive, computed, onMounted } from "vue";
 import DiscountModal from "./components/DiscountModal.vue";
+import DeleteModal from "./components/DeleteModal.vue";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 const isModalOpen = ref(false);
+const isDeleteModalOpen = ref(false);
 const modalType = ref("");
 const selectedIds = ref([]);
 const page = ref(1);
@@ -148,7 +153,7 @@ const openModal = (type, item = null) => {
 };
 
 const handleSaveOrUpdate = async (payload) => {
-  
+
   const targetData = payload || formData;
 
   isLoading.value = true;
@@ -204,7 +209,7 @@ const handleSaveOrUpdate = async (payload) => {
       const index = discounts.value.findIndex(item => item.id === id);
 
       // 2. Jika datanya ketemu (index tidak -1), timpa dengan data yang baru
-      if (index >= 0 ) {
+      if (index >= 0) {
         discounts.value[index] = {
           id: id, // ID tetap sama
           name: targetData.name,
@@ -264,14 +269,10 @@ const deleteData = async (payload) => {
   }
 };
 
+
+
 // Fungsi untuk menghapus banyak data sekaligus (Bulk Delete)
 const handleBulkDelete = async () => {
-  // Gunakan konfirmasi bawaan browser agar lebih praktis
-  const konfirmasi = window.confirm(
-    `Apakah Anda yakin ingin menghapus ${selectedIds.value.length} diskon yang dipilih?`
-  );
-
-  if (!konfirmasi) return;
 
   isLoading.value = true;
   try {
@@ -304,6 +305,7 @@ const handleBulkDelete = async () => {
     snackbar.color = 'error';
     snackbar.show = true;
   } finally {
+    isDeleteModalOpen.value = false;
     isLoading.value = false;
   }
 };
