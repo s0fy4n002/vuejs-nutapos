@@ -3,7 +3,7 @@
     <v-main class="bg-grey-lighten-4">
       <v-container class="py-8">
         <v-card rounded="xl" elevation="0" class="border border-grey-lighten-2">
-          <v-card-text class="pa-6" v-if="selectedMerchantId">
+          <v-card-text class="pa-6" v-if="selectedOutlet">
 
             <div class="d-flex justify-space-between align-center mb-6">
               <div>
@@ -35,10 +35,22 @@
                 prepend-inner-icon="mdi-magnify" variant="outlined" density="compact" hide-details rounded="lg"
                 clearable class=""></v-text-field>
 
-              <v-autocomplete v-model="selectedMerchantId" :items="merchantList" item-title="name" item-value="id"
-                placeholder="Pilih Merchant" prepend-inner-icon="mdi-storefront-outline" variant="outlined"
-                density="compact" hide-details rounded="lg" clearable
-                style="min-width: 250px; max-width: 300px;"></v-autocomplete>
+              <v-btn variant="outlined" color="grey-lighten-1" rounded="lg" height="44" class="text-none px-4 bg-white"
+                elevation="0" @click="isOutletModalOpen = true">
+                <div class="d-flex align-center text-grey-darken-3">
+                  <v-icon icon="mdi-storefront-outline" size="22" class="mr-3"></v-icon>
+
+                  <span class="text-body-1 font-weight-medium mr-2">
+                    {{ selectedOutlet ? selectedOutlet.name : 'Pilih Outlet' }}
+                  </span>
+
+                  <v-icon icon="mdi-chevron-down" size="24"></v-icon>
+                </div>
+              </v-btn>
+
+              <OutletModal v-model="isOutletModalOpen" :outlets="outletList" :selected-outlet-id="selectedOutlet?.id"
+                :current-api-url="BASE_API" @select="handleOutletSelection" @apply-url="handleUrlChange"
+                @add-outlet="handleAddOutlet" />
             </div>
 
             <template v-if="!isLoading && filteredDiscounts.length === 0">
@@ -104,9 +116,13 @@
                 Silahkan pilih outlet terlebih dahulu
               </p>
 
-              <v-btn color="success" variant="tonal" rounded="xl" class="px-6">
+              <v-btn @click="isOutletModalOpen = true" color="success" variant="tonal" rounded="xl" class="px-6">
                 Pilih outlet
               </v-btn>
+
+              <OutletModal v-model="isOutletModalOpen" :outlets="outletList" :selected-outlet-id="selectedOutlet?.id"
+                :current-api-url="BASE_API" @select="handleOutletSelection" @apply-url="handleUrlChange"
+                @add-outlet="handleAddOutlet" />
 
             </div>
           </v-card-text>
@@ -136,11 +152,12 @@
 import { ref, reactive, computed, onMounted } from "vue";
 import DiscountModal from "./components/DiscountModal.vue";
 import DeleteModal from "./components/DeleteModal.vue";
+import OutletModal from "./components/OutletModal.vue";
 
 const BASE_API = import.meta.env.VITE_API_URL.replace(/\/discounts$/, '').replace(/\/merchants$/, '');
 
 const DISCOUNT_API_URL = `${BASE_API}/discounts`;
-const MERCHANT_API_URL = `${BASE_API}/merchants`;
+const OUTLET_API = `${BASE_API}/outlets`;
 
 const isModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
@@ -150,16 +167,20 @@ const page = ref(1);
 const itemsPerPage = ref(3);
 const isLoading = ref(false); // State untuk indikator loading
 const searchQuery = ref('');
-const selectedMerchant = ref(null);
+
+const isOutletModalOpen = ref(false);
+const selectedOutlet = ref(null);
 const selectedMerchantId = ref(null);
 
-const merchantList = ref([
-  { id: 1, name: 'Toko Abadi' },
-  { id: 2, name: 'Warung Madani' },
-  { id: 3, name: 'Kopi Senja' },
-  { id: 4, name: 'Supermart' }
+const outletList = ref([
+  { id: 1, name: 'Dapoer Rasa', address: 'Jl. Asia Afrika No. 25' },
+  { id: 2, name: 'Espresso Bliss', address: 'Jl. Pemuda No. 78' },
+  { id: 3, name: 'Koffeetopia', address: 'Jl. Basuki Rahmat No. 12' },
+  { id: 4, name: 'Kopi Anak Bangsa', address: 'Jl. Gatot Subroto No. 33' },
+  { id: 5, name: 'Lauk & Co', address: 'Jl. Teuku Umar No. 88' },
+  { id: 6, name: 'Ruang Kopi', address: 'Jl. Sudirman No. 45' },
+  { id: 7, name: 'Selera Nusantara', address: 'Jl. Malioboro No. 10' },
 ]);
-
 
 const formData = reactive({ id: null, name: "", value: "", type: "%" });
 const snackbar = reactive({
@@ -213,7 +234,7 @@ const fetchDiscounts = async () => {
 // Panggil fetchDiscounts saat komponen di-mount
 onMounted(() => {
   fetchDiscounts();
-  fetchMerchants();
+  // fetchMerchants();
 });
 
 const openModal = (type, item = null) => {
@@ -399,40 +420,10 @@ const filteredDiscounts = computed(() => {
   return result;
 });
 
-// 4. Fungsi bantuan (Helper) untuk mengubah merchant_id menjadi Nama Merchant di tabel
-const getMerchantName = (id) => {
-  const merchant = merchantList.value.find(m => m.id === id);
-  return merchant ? merchant.name : '-';
-};
-
-const handleAddMerchant = async (newMerchantName) => {
-  const name = newMerchantName.trim();
-  if (!name || !BASE_API) return;
-
-  isLoading.value = true;
-  try {
-    const response = await fetch(MERCHANT_API_URL, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: name })
-    });
-
-    if (!response.ok) throw new Error("Gagal membuat merchant");
-
-    const newMerchantData = await response.json();
-    const createdMerchant = { id: newMerchantData._id, name: newMerchantData.name };
-
-    merchantList.value.push(createdMerchant);
-    selectedMerchantId.value = createdMerchant.id;
-
-    snackbar.text = `Merchant "${createdMerchant.name}" ditambahkan!`;
-    snackbar.color = 'success';
-    snackbar.show = true;
-  } catch (error) {
-    console.error("Error adding merchant:", error);
-  } finally {
-    isLoading.value = false;
-  }
+// 4. Fungsi bantuan (Helper) untuk mengubah outlet_id menjadi Nama Outlet di tabel
+const getOutletName = (id) => {
+  const outlet = outletList.value.find(m => m.id === id);
+  return outlet ? outlet.name : '-';
 };
 
 const fetchMerchants = async () => {
@@ -441,10 +432,101 @@ const fetchMerchants = async () => {
     const response = await fetch(MERCHANT_API_URL);
     if (!response.ok) throw new Error("Gagal mengambil data merchant");
     const data = await response.json();
-    merchantList.value = data.map(item => ({ id: item._id, name: item.name }));
+    outletList.value = data.map(item => ({ id: item._id, name: item.name }));
   } catch (error) {
     console.error("Error fetching merchants:", error);
   }
+};
+
+const handleOutletSelection = (outlet) => {
+  selectedOutlet.value = outlet;
+
+  // Lakukan fungsi lainnya di sini (misal: ambil data diskon dari API khusus outlet tersebut)
+  console.log("Outlet yang dipilih:", outlet.name);
+};
+
+const handleUrlChange = async (newUrl) => {
+    // Bersihkan URL dari slash atau endpoint di belakangnya agar bersih
+    const cleanUrl = newUrl.trim().replace(/\/outlets$/, '').replace(/\/discounts$/, '').replace(/\/$/, '');
+    
+    API_URL.value = cleanUrl;
+    localStorage.setItem('crudcrud_url', cleanUrl); // Simpan ke browser
+    
+    snackbar.text = 'API URL berhasil diterapkan!';
+    snackbar.color = 'success';
+    snackbar.show = true;
+
+    // Langsung tarik data outlet dari API yang baru
+    await fetchOutlets();
+};
+
+// 2. Fungsi untuk mengambil data Outlet (GET)
+const fetchOutlets = async () => {
+    if (!API_URL.value) return;
+    
+    try {
+        const response = await fetch(OUTLET_API);
+        if (!response.ok) throw new Error("Gagal mengambil data outlet");
+        
+        const data = await response.json();
+        outletList.value = data.map(item => ({
+            id: item._id,
+            name: item.name,
+            address: item.address || '-'
+        }));
+    } catch (error) {
+        console.error("Error fetching outlets:", error);
+        outletList.value = []; // Kosongkan jika URL salah/expired
+    }
+};
+
+// 3. Fungsi saat tombol "Tambah Outlet ke API" diklik
+const handleAddOutlet = async (outletName) => {
+    if (!BASE_API) {
+        snackbar.text = 'Silahkan masukkan API URL terlebih dahulu!';
+        snackbar.color = 'error';
+        snackbar.show = true;
+        return;
+    }
+
+    try {
+        // Hit ke API crudcrud
+        const response = await fetch(OUTLET_API, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ 
+                name: outletName,
+                address: 'Alamat belum diatur' // Nilai default
+            })
+        });
+
+        if (!response.ok) throw new Error("Gagal membuat outlet");
+        
+        const newData = await response.json();
+        
+        const newOutlet = {
+            id: newData._id,
+            name: newData.name,
+            address: newData.address
+        };
+        
+        // Masukkan ke daftar lokal agar langsung muncul
+        outletList.value.push(newOutlet);
+        
+        // Otomatis jadikan outlet ini sebagai yang terpilih
+        selectedOutlet.value = newOutlet;
+        isOutletModalOpen.value = false; // Tutup modal
+
+        snackbar.text = `Outlet "${newOutlet.name}" berhasil dibuat!`;
+        snackbar.color = 'success';
+        snackbar.show = true;
+
+    } catch (error) {
+        console.error("Error adding outlet:", error);
+        snackbar.text = 'Terjadi kesalahan saat menambah outlet';
+        snackbar.color = 'error';
+        snackbar.show = true;
+    }
 };
 
 </script>
