@@ -31,9 +31,9 @@
             </div>
 
             <div class="d-flex flex-column flex-sm-row ga-4 mb-6">
-              <v-text-field v-if="filteredDiscounts.length > 0" v-model="searchQuery" placeholder="Cari nama diskon..."
-                prepend-inner-icon="mdi-magnify" variant="outlined" density="compact" hide-details rounded="lg"
-                clearable class=""></v-text-field>
+              <v-text-field v-if="discounts.value?.length > 0" v-model="searchQuery" placeholder="Cari nama diskon..."
+                prepend-inner-icon="mdi-magnify" variant="outlined" density="compact" hide-details rounded="xl"
+                clearable style="max-width: 300px;"></v-text-field>
 
               <v-btn variant="outlined" color="grey-lighten-1" rounded="lg" height="44" class="text-none px-4 bg-white"
                 elevation="0" @click="isOutletModalOpen = true">
@@ -53,7 +53,7 @@
                 @add-outlet="handleAddOutlet" />
             </div>
 
-            <template v-if="!isLoading && filteredDiscounts.length === 0">
+            <template v-if="discounts.length === 0">
               <div class="d-flex flex-column align-center justify-center py-16">
 
                 <img src="/discount_not_available.svg" alt="Ilustrasi Kosong" width="250" class="mb-6" />
@@ -149,7 +149,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, onMounted, nextTick, watch } from "vue";
 import DiscountModal from "./components/DiscountModal.vue";
 import DeleteModal from "./components/DeleteModal.vue";
 import OutletModal from "./components/OutletModal.vue";
@@ -194,20 +194,13 @@ const headers = [
   { title: "", key: "actions", align: "end", sortable: false },
 ];
 
-// const discounts = ref([
-//   { id: 1, name: 'Burger Hemat', value: 'Rp 10.000' },
-//   { id: 2, name: 'Cheese Lover', value: 'Rp 8.000' },
-//   { id: 3, name: 'Diskon Opening', value: '10%' }
-// ]);
-
-// Kosongkan array awal
 const discounts = ref([]);
 
 const totalPages = computed(() =>
   Math.ceil(filteredDiscounts.value.length / itemsPerPage.value),
 );
 
-// Fungsi untuk mengambil data dari crudcrud
+
 const fetchDiscounts = async () => {
   isLoading.value = true;
   try {
@@ -218,23 +211,27 @@ const fetchDiscounts = async () => {
     const data = await response.json();
 
     // Mapping data karena crudcrud menggunakan _id sebagai default ID
-    discounts.value = data.map((item) => ({
+    let filteredData = data.map((item) => ({
       ...item,
       id: item._id,
-    }));
+    })).filter((discount) => {
+      return selectedOutlet.value ? discount.outlet_id === selectedOutlet.value.id : true;
+    });
+
+    discounts.value = filteredData;
+
   } catch (error) {
     console.error("Error fetching discounts:", error);
-    // Anda bisa tambahkan notifikasi error di sini nanti
+
   } finally {
     isLoading.value = false;
   }
 };
 
-// Panggil fetchDiscounts saat komponen di-mount
-onMounted(() => {
+watch(selectedOutlet, () => {
   fetchDiscounts();
   // fetchMerchants();
-});
+}, { immediate: true });
 
 const openModal = (type, item = null) => {
   modalType.value = type;
@@ -253,9 +250,7 @@ const handleSaveOrUpdate = async (payload) => {
   isLoading.value = true;
   try {
     if (modalType.value === "tambah") {
-      // ==========================================
-      // 1. LOGIKA TAMBAH DATA (POST)
-      // ==========================================
+
       const response = await fetch(DISCOUNT_API_URL, {
         method: "POST",
         headers: {
@@ -264,6 +259,7 @@ const handleSaveOrUpdate = async (payload) => {
         body: JSON.stringify({
           name: targetData.name,
           value: targetData.value,
+          outlet_id: selectedOutlet.value.id
           // Jangan masukkan 'id' di sini karena akan dibuat otomatis oleh crudcrud
         }),
       });
@@ -274,11 +270,13 @@ const handleSaveOrUpdate = async (payload) => {
       }
 
       let newData = await response.json();
-      discounts.value.push({
-        id: newData._id, // Ambil ID yang dibuat oleh crudcrud
+
+      discounts.value = [...discounts.value, {
+        id: newData._id,
         name: targetData.name,
         value: targetData.value,
-      });
+        outlet_id: selectedOutlet.value.id
+      }];
 
     } else if (modalType.value === "ubah") {
 
@@ -296,6 +294,7 @@ const handleSaveOrUpdate = async (payload) => {
         body: JSON.stringify({
           name: targetData.name,
           value: targetData.value,
+          outlet_id: selectedOutlet.value.id
           // PENTING: crudcrud akan error jika 'id' atau '_id' disertakan di dalam body PUT
         }),
       });
@@ -308,6 +307,7 @@ const handleSaveOrUpdate = async (payload) => {
           id: id, // ID tetap sama
           name: targetData.name,
           value: targetData.value,
+          outlet_id: selectedOutlet.value.id
         };
       }
 
@@ -419,113 +419,93 @@ const filteredDiscounts = computed(() => {
   return result;
 });
 
-// 4. Fungsi bantuan (Helper) untuk mengubah outlet_id menjadi Nama Outlet di tabel
-const getOutletName = (id) => {
-  const outlet = outletList.value.find(m => m.id === id);
-  return outlet ? outlet.name : '-';
-};
-
-const fetchMerchants = async () => {
-  if (!BASE_API) return;
-  try {
-    const response = await fetch(MERCHANT_API_URL);
-    if (!response.ok) throw new Error("Gagal mengambil data merchant");
-    const data = await response.json();
-    outletList.value = data.map(item => ({ id: item._id, name: item.name }));
-  } catch (error) {
-    console.error("Error fetching merchants:", error);
-  }
-};
-
-const handleOutletSelection = (outlet) => {
+const handleOutletSelection = async (outlet) => {
   selectedOutlet.value = outlet;
 
-  // Lakukan fungsi lainnya di sini (misal: ambil data diskon dari API khusus outlet tersebut)
-  console.log("Outlet yang dipilih:", outlet.name);
 };
 
 const handleUrlChange = async (newUrl) => {
-    // Bersihkan URL dari slash atau endpoint di belakangnya agar bersih
-    const cleanUrl = newUrl.trim().replace(/\/outlets$/, '').replace(/\/discounts$/, '').replace(/\/$/, '');
-    
-    API_URL.value = cleanUrl;
-    localStorage.setItem('crudcrud_url', cleanUrl); // Simpan ke browser
-    
-    snackbar.text = 'API URL berhasil diterapkan!';
-    snackbar.color = 'success';
-    snackbar.show = true;
+  // Bersihkan URL dari slash atau endpoint di belakangnya agar bersih
+  const cleanUrl = newUrl.trim().replace(/\/outlets$/, '').replace(/\/discounts$/, '').replace(/\/$/, '');
 
-    // Langsung tarik data outlet dari API yang baru
-    await fetchOutlets();
+  API_URL.value = cleanUrl;
+  localStorage.setItem('crudcrud_url', cleanUrl); // Simpan ke browser
+
+  snackbar.text = 'API URL berhasil diterapkan!';
+  snackbar.color = 'success';
+  snackbar.show = true;
+
+  // Langsung tarik data outlet dari API yang baru
+  await fetchOutlets();
 };
 
 // 2. Fungsi untuk mengambil data Outlet (GET)
 const fetchOutlets = async () => {
-    if (!API_URL.value) return;
-    
-    try {
-        const response = await fetch(OUTLET_API);
-        if (!response.ok) throw new Error("Gagal mengambil data outlet");
-        
-        const data = await response.json();
-        outletList.value = data.map(item => ({
-            id: item._id,
-            name: item.name,
-            address: item.address || '-'
-        }));
-    } catch (error) {
-        console.error("Error fetching outlets:", error);
-        outletList.value = []; // Kosongkan jika URL salah/expired
-    }
+  if (!API_URL.value) return;
+
+  try {
+    const response = await fetch(OUTLET_API);
+    if (!response.ok) throw new Error("Gagal mengambil data outlet");
+
+    const data = await response.json();
+    outletList.value = data.map(item => ({
+      id: item._id,
+      name: item.name,
+      address: item.address || '-'
+    }));
+  } catch (error) {
+    console.error("Error fetching outlets:", error);
+    outletList.value = []; // Kosongkan jika URL salah/expired
+  }
 };
 
 // 3. Fungsi saat tombol "Tambah Outlet ke API" diklik
 const handleAddOutlet = async (outletName) => {
-    if (!BASE_API) {
-        snackbar.text = 'Silahkan masukkan API URL terlebih dahulu!';
-        snackbar.color = 'error';
-        snackbar.show = true;
-        return;
-    }
+  if (!BASE_API) {
+    snackbar.text = 'Silahkan masukkan API URL terlebih dahulu!';
+    snackbar.color = 'error';
+    snackbar.show = true;
+    return;
+  }
 
-    try {
-        // Hit ke API crudcrud
-        const response = await fetch(OUTLET_API, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ 
-                name: outletName,
-                address: 'Alamat belum diatur' // Nilai default
-            })
-        });
+  try {
+    // Hit ke API crudcrud
+    const response = await fetch(OUTLET_API, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name: outletName,
+        address: 'Alamat belum diatur' // Nilai default
+      })
+    });
 
-        if (!response.ok) throw new Error("Gagal membuat outlet");
-        
-        const newData = await response.json();
-        
-        const newOutlet = {
-            id: newData._id,
-            name: newData.name,
-            address: newData.address
-        };
-        
-        // Masukkan ke daftar lokal agar langsung muncul
-        outletList.value.push(newOutlet);
-        
-        // Otomatis jadikan outlet ini sebagai yang terpilih
-        selectedOutlet.value = newOutlet;
-        isOutletModalOpen.value = false; // Tutup modal
+    if (!response.ok) throw new Error("Gagal membuat outlet");
 
-        snackbar.text = `Outlet "${newOutlet.name}" berhasil dibuat!`;
-        snackbar.color = 'success';
-        snackbar.show = true;
+    const newData = await response.json();
 
-    } catch (error) {
-        console.error("Error adding outlet:", error);
-        snackbar.text = 'Terjadi kesalahan saat menambah outlet';
-        snackbar.color = 'error';
-        snackbar.show = true;
-    }
+    const newOutlet = {
+      id: newData._id,
+      name: newData.name,
+      address: newData.address
+    };
+
+    // Masukkan ke daftar lokal agar langsung muncul
+    outletList.value.push(newOutlet);
+
+    // Otomatis jadikan outlet ini sebagai yang terpilih
+    selectedOutlet.value = newOutlet;
+    isOutletModalOpen.value = false; // Tutup modal
+
+    snackbar.text = `Outlet "${newOutlet.name}" berhasil dibuat!`;
+    snackbar.color = 'success';
+    snackbar.show = true;
+
+  } catch (error) {
+    console.error("Error adding outlet:", error);
+    snackbar.text = 'Terjadi kesalahan saat menambah outlet';
+    snackbar.color = 'error';
+    snackbar.show = true;
+  }
 };
 
 </script>
