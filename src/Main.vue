@@ -149,8 +149,7 @@ const openModal = (type, item = null) => {
 };
 
 const handleSaveOrUpdate = async (payload) => {
-  // Menerima data dari emit komponen boks modal (jika ada),
-  // jika tidak, gunakan `formData` yang ada di komponen utama ini.
+  
   const targetData = payload || formData;
 
   isLoading.value = true;
@@ -177,9 +176,6 @@ const handleSaveOrUpdate = async (payload) => {
       }
 
       let newData = await response.json();
-
-      console.log("Data baru yang diterima dari server:", newData);
-
       discounts.value.push({
         id: newData._id, // Ambil ID yang dibuat oleh crudcrud
         name: targetData.name,
@@ -205,6 +201,17 @@ const handleSaveOrUpdate = async (payload) => {
           // PENTING: crudcrud akan error jika 'id' atau '_id' disertakan di dalam body PUT
         }),
       });
+
+      const index = discounts.value.findIndex(item => item.id === id);
+
+      // 2. Jika datanya ketemu (index tidak -1), timpa dengan data yang baru
+      if (index >= 0 ) {
+        discounts.value[index] = {
+          id: id, // ID tetap sama
+          name: targetData.name,
+          value: targetData.value,
+        };
+      }
 
       if (!response.ok) {
         throw new Error("Gagal mengubah data di server");

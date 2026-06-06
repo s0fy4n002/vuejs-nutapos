@@ -1,59 +1,76 @@
 <script setup>
-import { ref, watch } from 'vue';
+import { ref, watch, nextTick } from 'vue';
 
-// Tambahkan prop 'formData' untuk menerima data saat mode 'ubah'
 const props = defineProps({
     type: String,
     modelValue: Boolean,
-    formData: Object // Menerima data dari parent
+    formData: Object
 });
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'delete']);
+
+// 1. Tambahkan ref untuk mengontrol form
+const formRef = ref(null);
 
 const discountType = ref('%');
 const namaDiskon = ref('');
 const nilaiDiskon = ref(null);
 
-// Gunakan watch untuk mengisi form otomatis saat modal dibuka
-watch(() => props.modelValue, (isOpen) => {
+// 2. Buat aturan validasi
+const aturanNama = [
+    value => !!value || 'Nama diskon tidak boleh kosong'
+];
+
+const aturanNilai = [
+    value => !!value || 'Nilai diskon tidak boleh kosong',
+    value => Number(value) > 0 || 'Nilai harus lebih dari 0' // Tambahan agar tidak minus/nol
+];
+
+watch(() => props.modelValue, async (isOpen) => {
     if (isOpen) {
         if (props.type === 'ubah' && props.formData) {
             namaDiskon.value = props.formData.name;
 
-            // Logika untuk memecah string (misal "Rp 10.000" atau "10%")
             const valStr = props.formData.value || '';
             if (valStr.includes('%')) {
                 discountType.value = '%';
                 nilaiDiskon.value = valStr.replace('%', '').trim();
             } else if (valStr.toLowerCase().includes('rp')) {
                 discountType.value = 'Rp';
-                // Mengambil angkanya saja dari format Rp 10.000
                 nilaiDiskon.value = valStr.replace(/[^0-9]/g, '');
             }
         } else {
-            // Reset form jika mode 'tambah'
             namaDiskon.value = '';
             nilaiDiskon.value = null;
             discountType.value = '%';
         }
+
+        // 3. Reset peringatan error (merah) setiap kali modal baru dibuka
+        await nextTick(); // Tunggu komponen dirender
+        if (formRef.value) formRef.value.resetValidation();
     }
 });
 
 const close = () => emit('update:modelValue', false);
 
-const handleSimpan = () => {
-    // Format nilai angka menjadi string sesuai pilihan jenis diskon
+// 4. Ubah handleSimpan menjadi async untuk menunggu hasil validasi
+const handleSimpan = async () => {
+    // Validasi form terlebih dahulu
+    if (formRef.value) {
+        const { valid } = await formRef.value.validate();
+        
+        // Jika form tidak valid (ada yang kosong), batalkan proses simpan!
+        if (!valid) return; 
+    }
+
     let finalValue = '';
     if (discountType.value === '%') {
         finalValue = `${nilaiDiskon.value}%`;
     } else {
-        // Ubah angka menjadi format Rp 10.000
         const num = Number(nilaiDiskon.value) || 0;
-        // Menggunakan format lokal Indonesia
         finalValue = `Rp ${num.toLocaleString('id-ID')}`;
     }
 
-    // Kirim data yang sudah diformat ke komponen induk
     emit('confirm', {
         id: props.formData?.id,
         name: namaDiskon.value,
@@ -68,8 +85,6 @@ const handleDelete = () => {
         name: namaDiskon.value
     });
 };
-
-
 </script>
 
 <template>
@@ -89,7 +104,7 @@ const handleDelete = () => {
                         </v-btn>
                     </v-col>
                     <v-col>
-                        <v-btn color="error" block rounded="lg" @click="$emit('confirm')">
+                        <v-btn color="error" block rounded="lg" @click="handleDelete">
                             Hapus
                         </v-btn>
                     </v-col>
@@ -104,40 +119,59 @@ const handleDelete = () => {
                     <v-btn icon="mdi-close" variant="plain" density="compact" @click="close" />
                 </div>
 
-                <v-text-field v-model="namaDiskon" label="Nama Diskon"
-                    placeholder="Misal: Diskon opening, diskon akhir tahun" variant="outlined" rounded="lg"
-                    density="comfortable" color="success" class="mb-2" />
+                <v-form ref="formRef" @submit.prevent="handleSimpan">
+                    
+                    <v-text-field 
+                        v-model="namaDiskon" 
+                        :rules="aturanNama"
+                        label="Nama Diskon"
+                        placeholder="Misal: Diskon opening, diskon akhir tahun" 
+                        variant="outlined" 
+                        rounded="lg"
+                        density="comfortable" 
+                        color="success" 
+                        class="mb-4" 
+                    />
 
-                <div class="d-flex align-center ga-sm-4 mb-6">
-                    <v-text-field v-model="nilaiDiskon" label="Diskon" placeholder="0" variant="outlined" rounded="lg"
-                        density="comfortable" color="success" type="number" :suffix="discountType === '%' ? '%' : ''"
-                        hide-details class="flex-grow-1" />
+                    <div class="d-flex align-start ga-sm-4 mb-6">
+                        <v-text-field 
+                            v-model="nilaiDiskon" 
+                            :rules="aturanNilai"
+                            label="Diskon" 
+                            placeholder="0" 
+                            variant="outlined" 
+                            rounded="lg"
+                            density="comfortable" 
+                            color="success" 
+                            type="number" 
+                            :suffix="discountType === '%' ? '%' : ''"
+                            class="flex-grow-1" 
+                        />
 
-                    <v-btn-toggle v-model="discountType" mandatory rounded="lg"
-                        style="height: 30px; border: 1px solid rgba(0,0,0,0.23);" class="overflow-hidden">
-                        <v-btn value="%" variant="text" :color="discountType === '%' ? 'success' : 'default'"
-                            :class="discountType === '%' ? 'bg-green-lighten-5' : ''" class="px-3"
-                            style="height: 100%;">
-                            <v-icon v-if="discountType === '%'" start size="16">mdi-check</v-icon>
-                            %
-                        </v-btn>
-                        <v-divider vertical />
-                        <v-btn value="Rp" variant="text" :color="discountType === 'Rp' ? 'success' : 'default'"
-                            :class="discountType === 'Rp' ? 'bg-green-lighten-5' : ''" class="px-3"
-                            style="height: 100%;">
-                            <v-icon v-if="discountType === 'Rp'" start size="16">mdi-check</v-icon>
-                            Rp
-                        </v-btn>
-                    </v-btn-toggle>
-                </div>
+                        <v-btn-toggle v-model="discountType" mandatory rounded="lg"
+                            style="height: 48px; border: 1px solid rgba(0,0,0,0.23);" class="overflow-hidden">
+                            <v-btn value="%" variant="text" :color="discountType === '%' ? 'success' : 'default'"
+                                :class="discountType === '%' ? 'bg-green-lighten-5' : ''" class="px-3"
+                                style="height: 100%;">
+                                <v-icon v-if="discountType === '%'" start size="16">mdi-check</v-icon>
+                                %
+                            </v-btn>
+                            <v-divider vertical />
+                            <v-btn value="Rp" variant="text" :color="discountType === 'Rp' ? 'success' : 'default'"
+                                :class="discountType === 'Rp' ? 'bg-green-lighten-5' : ''" class="px-3"
+                                style="height: 100%;">
+                                <v-icon v-if="discountType === 'Rp'" start size="16">mdi-check</v-icon>
+                                Rp
+                            </v-btn>
+                        </v-btn-toggle>
+                    </div>
 
-                <v-btn v-if="props.type === 'tambah'" color="success" block rounded="xl" size="large"
-                    @click="handleSimpan">
-                    Simpan
-                </v-btn>
+                    <v-btn v-if="props.type === 'tambah'" color="success" block rounded="xl" size="large"
+                        @click="handleSimpan">
+                        Simpan
+                    </v-btn>
 
-                <template v-else-if="props.type === 'ubah'" class="d-flex justify-space-between gap-3">
-                    <div class="d-flex justify-space-between">
+                    <div v-else-if="props.type === 'ubah'" class="d-flex justify-space-between w-100">
                         <v-btn color="error" variant="text" size="medium" @click="handleDelete">
                             Hapus
                         </v-btn>
@@ -146,8 +180,7 @@ const handleDelete = () => {
                             Simpan
                         </v-btn>
                     </div>
-
-                </template>
+                </v-form>
 
             </template>
 
