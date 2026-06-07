@@ -153,6 +153,8 @@ import { ref, reactive, computed, onMounted, nextTick, watch } from "vue";
 import DiscountModal from "./components/DiscountModal.vue";
 import DeleteModal from "./components/DeleteModal.vue";
 import OutletModal from "./components/OutletModal.vue";
+import { storeToRefs } from "pinia";
+import { useOutletStore } from "./stores/outletStore";
 
 const BASE_API = import.meta.env.VITE_API_URL.replace(/\/discounts$/, '').replace(/\/merchants$/, '');
 
@@ -169,7 +171,8 @@ const isLoading = ref(false); // State untuk indikator loading
 const searchQuery = ref('');
 
 const isOutletModalOpen = ref(false);
-const selectedOutlet = ref(null);
+const outletStore = useOutletStore()
+const { selectedOutlet } = storeToRefs(outletStore)
 
 const outletList = ref([
   { id: 1, name: 'Dapoer Rasa', address: 'Jl. Asia Afrika No. 25' },
