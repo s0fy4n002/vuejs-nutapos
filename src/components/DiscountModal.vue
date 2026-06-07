@@ -1,7 +1,6 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue';
 import { useOutletStore } from '../stores/outletStore';
-import { storeToRefs } from 'pinia';
 
 const props = defineProps({
     type: String,
@@ -11,11 +10,9 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'delete']);
+
 const outletStore = useOutletStore()
-
-// 1. Tambahkan ref untuk mengontrol form
 const formRef = ref(null);
-
 const discountType = ref('%');
 const namaDiskon = ref('');
 const nilaiDiskon = ref(null);
@@ -31,6 +28,7 @@ const aturanNilai = [
 ];
 
 watch(() => props.modelValue, async (isOpen) => {
+    console.log(props.type, props.formData);
     if (isOpen) {
         if (props.type === 'ubah' && props.formData) {
             namaDiskon.value = props.formData.name;
@@ -55,13 +53,8 @@ watch(() => props.modelValue, async (isOpen) => {
     }
 });
 
-watch(() => props.isLoading, (newVal) => {
-    console.log('isLoading berubah:', newVal);
-},{ immediate: true });
-
 const close = () => emit('update:modelValue', false);
 
-// 4. Ubah handleSimpan menjadi async untuk menunggu hasil validasi
 const handleSimpan = async () => {
     // Validasi form terlebih dahulu
     if (formRef.value) {
@@ -88,7 +81,11 @@ const handleSimpan = async () => {
 
 const handleDelete = () => {
     console.log('Mengirim event delete untuk ID:', props.formData?.id);
-    outletStore.setSelectedIds(props.formData?.id);
+    outletStore.setSelectedDiscounts([{
+        id: props.formData?.id,
+        name: namaDiskon.value
+    }]);
+
     emit('delete', {
         id: props.formData?.id,
         name: namaDiskon.value
@@ -100,27 +97,7 @@ const handleDelete = () => {
     <v-dialog :model-value="modelValue" @update:model-value="emit('update:modelValue', $event)" max-width="460"
         rounded="xl">
         <v-card rounded="xl" class="pa-6">
-
-            <template v-if="props.type === 'hapus'">
-                <v-card-title class="pa-0 mb-2 text-h6 font-weight-bold">Hapus Diskon</v-card-title>
-                <v-card-text class="pa-0 mb-6 text-body-2 text-medium-emphasis">
-                    Apakah Anda yakin ingin menghapus diskon ini? Data tidak bisa dikembalikan.
-                </v-card-text>
-                <v-row no-gutters class="gap-3">
-                    <v-col>
-                        <v-btn variant="outlined" color="grey" block rounded="lg" @click="close">
-                            Batalkan
-                        </v-btn>
-                    </v-col>
-                    <v-col>
-                        <v-btn color="error" block rounded="lg" @click="handleDelete">
-                            Hapus
-                        </v-btn>
-                    </v-col>
-                </v-row>
-            </template>
-
-            <template v-else>
+            <div>
                 <div class="d-flex align-center justify-space-between mb-5">
                     <span class="text-h6 font-weight-bold">
                         {{ props.type === 'tambah' ? 'Tambah' : 'Ubah' }} Diskon
@@ -173,7 +150,7 @@ const handleDelete = () => {
                     </div>
                 </v-form>
 
-            </template>
+            </div>
 
         </v-card>
     </v-dialog>

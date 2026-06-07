@@ -1,6 +1,6 @@
 <template>
   <v-app>
-    <v-main class="bg-grey-lighten-4">
+    <v-main v-if="!isLoadingDiscount" class="bg-grey-lighten-4">
       <v-container class="py-8">
         <v-card rounded="xl" elevation="0" class="border border-grey-lighten-2">
           <v-card-text class="pa-6" v-if="selectedOutlet">
@@ -12,8 +12,9 @@
                 </p>
               </div>
 
-              <div v-if="selectedIds.length > 0" class="d-flex ga-3">
-                <v-btn variant="outlined" color="grey" rounded="lg" size="small" @click="outletStore.clearSelectedIds()">
+              <div v-if="selectedDiscounts.length > 0" class="d-flex ga-3">
+                <v-btn variant="outlined" color="grey" rounded="lg" size="small"
+                  @click="outletStore.clearselectedDiscounts()">
                   Batalkan
                 </v-btn>
                 <v-btn color="error" rounded="lg" size="small" @click="isDeleteModalOpen = true">
@@ -74,7 +75,7 @@
               </div>
             </template>
 
-            <v-data-table v-if="!isLoading && filteredDiscounts.length > 0" v-model="selectedIds" :page="page"
+            <v-data-table v-if="!isLoading && filteredDiscounts.length > 0" v-model="selectedDiscounts" :page="page"
               :headers="headers" :items="filteredDiscounts" :items-per-page="itemsPerPage" item-value="id" show-select
               color="success" return-object :loading="isLoading" loading-text="Sedang memuat data diskon...">
               <template #item.actions="{ item }">
@@ -130,11 +131,11 @@
       </v-container>
     </v-main>
 
-    <DiscountModal :isLoading="isLoading" v-model="isModalOpen" :form-data="formData" :type="modalType" @confirm="handleSaveOrUpdate"
-      @delete="deleteData" />
+    <DiscountModal :isLoading="isLoading" v-model="isDiscountModalOpen" :form-data="formData" :type="modalType"
+      @confirm="handleSaveOrUpdate" @delete="deleteData" />
 
-    <DeleteModal v-model="isDeleteModalOpen" :count="selectedIds.length"
-      :item-name="selectedIds.length === 1 ? selectedIds[0].name : ''" @confirm="handleBulkDelete" />
+    <DeleteModal v-model="isDeleteModalOpen" :count="selectedDiscounts.length"
+      :item-name="selectedDiscounts.length === 1 ? selectedDiscounts[0].name : ''" @confirm="handleBulkDelete" />
 
     <v-snackbar v-model="snackbar.show" :color="snackbar.color" timeout="3000" location="top center" rounded="0">
       {{ snackbar.text }}
@@ -145,30 +146,34 @@
 
     </v-snackbar>
 
+    <LoadingOverlay v-model="isLoadingDiscount" />
+
   </v-app>
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted, nextTick, watch } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import DiscountModal from "./components/DiscountModal.vue";
 import DeleteModal from "./components/DeleteModal.vue";
 import OutletModal from "./components/OutletModal.vue";
 import { storeToRefs } from "pinia";
 import { useOutletStore } from "./stores/outletStore";
+import LoadingOverlay from "./components/LoadingOverlay.vue";
 
 const BASE_API = import.meta.env.VITE_API_URL.replace(/\/discounts$/, '').replace(/\/merchants$/, '');
 
 const DISCOUNT_API_URL = `${BASE_API}/discounts`;
 const OUTLET_API = `${BASE_API}/outlets`;
 const outletStore = useOutletStore()
-const { selectedOutlet, selectedIds } = storeToRefs(outletStore)
+const { selectedOutlet, selectedDiscounts } = storeToRefs(outletStore)
 
-const isModalOpen = ref(false);
+const isDiscountModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
 const modalType = ref("");
 const page = ref(1);
 const itemsPerPage = ref(3);
 const isLoading = ref(false);
+const isLoadingDiscount = ref(false);
 const searchQuery = ref('');
 
 const isOutletModalOpen = ref(false);
@@ -204,7 +209,7 @@ const totalPages = computed(() =>
 
 
 const fetchDiscounts = async () => {
-  isLoading.value = true;
+  isLoadingDiscount.value = true;
   try {
     const response = await fetch(DISCOUNT_API_URL);
     if (!response.ok) {
@@ -226,7 +231,7 @@ const fetchDiscounts = async () => {
     console.error("Error fetching discounts:", error);
 
   } finally {
-    isLoading.value = false;
+    isLoadingDiscount.value = false;
   }
 };
 
@@ -241,7 +246,7 @@ const openModal = (type, item = null) => {
   } else {
     Object.assign(formData, { id: null, name: "", value: "", type: "%" });
   }
-  isModalOpen.value = true;
+  isDiscountModalOpen.value = true;
 };
 
 const handleSaveOrUpdate = async (payload) => {
@@ -316,7 +321,7 @@ const handleSaveOrUpdate = async (payload) => {
       }
     }
 
-    isModalOpen.value = false;
+    isDiscountModalOpen.value = false;
 
   } catch (error) {
     console.error("Terjadi kesalahan:", error);
@@ -326,42 +331,7 @@ const handleSaveOrUpdate = async (payload) => {
 };
 
 const deleteData = async (payload) => {
-  console.log('ID yang ditangkap parent:', payload.id);
-
-  isDeleteModalOpen.value = true; 
-
-  if (!payload.id) return;
-
-  isLoading.value = true;
-  try {
-    const response = await fetch(`${DISCOUNT_API_URL}/${payload.id}`, {
-      method: 'DELETE'
-    });
-
-    if (!response.ok) {
-      throw new Error('Gagal menghapus data di server');
-    }
-
-    // Jika berhasil dihapus, tutup modal dan ambil ulang data terbaru
-    isModalOpen.value = false;
-
-    snackbar.text = `Berhasil Hapus diskon ${payload.name}`;
-    snackbar.color = 'success';
-    snackbar.show = true;
-
-    await fetchDiscounts();
-
-  } catch (error) {
-    snackbar.text = 'Gagal menghapus diskon';
-    snackbar.color = 'error';
-    snackbar.show = true;
-
-    console.error('Terjadi kesalahan saat menghapus:', error);
-  } finally {
-    isLoading.value = false;
-    isDeleteModalOpen.value = false;
-    outletStore.clearSelectedIds();
-  }
+  isDeleteModalOpen.value = true;
 };
 
 // Fungsi untuk menghapus banyak data sekaligus (Bulk Delete)
@@ -370,7 +340,7 @@ const handleBulkDelete = async () => {
   isLoading.value = true;
   try {
     // Karena crudcrud tidak punya endpoint hapus massal, kita hapus satu per satu secara paralel
-    const deletePromises = selectedIds.value.map(item =>
+    const deletePromises = selectedDiscounts.value.map(item =>
       fetch(`${DISCOUNT_API_URL}/${item.id}`, { method: 'DELETE' })
     );
 
@@ -383,12 +353,12 @@ const handleBulkDelete = async () => {
     }
 
     // Tampilkan notifikasi
-    snackbar.text = `Berhasil menghapus ${selectedIds.value.length} diskon`;
+    snackbar.text = `Berhasil menghapus ${selectedDiscounts.value.length} diskon`;
     snackbar.color = 'success';
     snackbar.show = true;
 
     // Kosongkan centang dan refresh tabel
-    selectedIds.value = [];
+    selectedDiscounts.value = [];
     await fetchDiscounts();
 
   } catch (error) {
@@ -399,7 +369,8 @@ const handleBulkDelete = async () => {
   } finally {
     isDeleteModalOpen.value = false;
     isLoading.value = false;
-    outletStore.clearSelectedIds();
+    outletStore.clearSelectedDiscounts();
+    isDiscountModalOpen.value = false;
   }
 };
 

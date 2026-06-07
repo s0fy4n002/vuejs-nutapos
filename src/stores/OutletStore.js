@@ -5,7 +5,7 @@ export const useOutletStore = defineStore("outletStore", {
   state: () => {
     return {
       selectedOutlet: null,
-      selectedIds: [],
+      selectedDiscounts: [],
     };
   },
 
@@ -14,11 +14,11 @@ export const useOutletStore = defineStore("outletStore", {
       this.selectedOutlet = outlet;
     },
 
-    clearSelectedIds() {
-      this.selectedIds = [];
+    clearSelectedDiscounts() {
+      this.selectedDiscounts = [];
     },
-    setSelectedIds(ids) {
-      this.selectedIds = ids;
+    setSelectedDiscounts(discounts) {
+      this.selectedDiscounts = discounts;
     },
   },
   persist: true
