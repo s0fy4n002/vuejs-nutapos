@@ -53,7 +53,7 @@
                 @add-outlet="handleAddOutlet" />
             </div>
 
-            <template v-if="discounts.length === 0">
+            <template v-if="discounts.length === 0 && !isLoading">
               <div class="d-flex flex-column align-center justify-center py-16">
 
                 <img src="/discount_not_available.svg" alt="Ilustrasi Kosong" width="250" class="mb-6" />
