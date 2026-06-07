@@ -4,7 +4,8 @@ import { ref, watch, nextTick } from 'vue';
 const props = defineProps({
     type: String,
     modelValue: Boolean,
-    formData: Object
+    formData: Object,
+    isLoading: Boolean
 });
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'delete']);
@@ -51,6 +52,10 @@ watch(() => props.modelValue, async (isOpen) => {
     }
 });
 
+watch(() => props.isLoading, (newVal) => {
+    console.log('isLoading berubah:', newVal);
+},{ immediate: true });
+
 const close = () => emit('update:modelValue', false);
 
 // 4. Ubah handleSimpan menjadi async untuk menunggu hasil validasi
@@ -58,9 +63,9 @@ const handleSimpan = async () => {
     // Validasi form terlebih dahulu
     if (formRef.value) {
         const { valid } = await formRef.value.validate();
-        
+
         // Jika form tidak valid (ada yang kosong), batalkan proses simpan!
-        if (!valid) return; 
+        if (!valid) return;
     }
 
     let finalValue = '';
@@ -120,33 +125,15 @@ const handleDelete = () => {
                 </div>
 
                 <v-form ref="formRef" @submit.prevent="handleSimpan">
-                    
-                    <v-text-field 
-                        v-model="namaDiskon" 
-                        :rules="aturanNama"
-                        label="Nama Diskon"
-                        placeholder="Misal: Diskon opening, diskon akhir tahun" 
-                        variant="outlined" 
-                        rounded="lg"
-                        density="comfortable" 
-                        color="success" 
-                        class="mb-4" 
-                    />
+
+                    <v-text-field v-model="namaDiskon" :rules="aturanNama" label="Nama Diskon"
+                        placeholder="Misal: Diskon opening, diskon akhir tahun" variant="outlined" rounded="lg"
+                        density="comfortable" color="success" class="mb-4" />
 
                     <div class="d-flex align-start ga-sm-4 mb-6">
-                        <v-text-field 
-                            v-model="nilaiDiskon" 
-                            :rules="aturanNilai"
-                            label="Diskon" 
-                            placeholder="0" 
-                            variant="outlined" 
-                            rounded="lg"
-                            density="comfortable" 
-                            color="success" 
-                            type="number" 
-                            :suffix="discountType === '%' ? '%' : ''"
-                            class="flex-grow-1" 
-                        />
+                        <v-text-field v-model="nilaiDiskon" :rules="aturanNilai" label="Diskon" placeholder="0"
+                            variant="outlined" rounded="lg" density="comfortable" color="success" type="number"
+                            :suffix="discountType === '%' ? '%' : ''" class="flex-grow-1" />
 
                         <v-btn-toggle v-model="discountType" mandatory rounded="lg"
                             style="height: 48px; border: 1px solid rgba(0,0,0,0.23);" class="overflow-hidden">
@@ -166,7 +153,7 @@ const handleDelete = () => {
                         </v-btn-toggle>
                     </div>
 
-                    <v-btn v-if="props.type === 'tambah'" color="success" block rounded="xl" size="large"
+                    <v-btn v-if="props.type === 'tambah'" color="success" block rounded="xl" :loading="props.isLoading" size="large"
                         @click="handleSimpan">
                         Simpan
                     </v-btn>
@@ -176,7 +163,7 @@ const handleDelete = () => {
                             Hapus
                         </v-btn>
 
-                        <v-btn color="success" rounded="xl" @click="handleSimpan">
+                        <v-btn color="success" rounded="xl" :loading="props.isLoading" @click="handleSimpan">
                             Simpan
                         </v-btn>
                     </div>

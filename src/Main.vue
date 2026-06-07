@@ -130,7 +130,7 @@
       </v-container>
     </v-main>
 
-    <DiscountModal v-model="isModalOpen" :form-data="formData" :type="modalType" @confirm="handleSaveOrUpdate"
+    <DiscountModal :isLoading="isLoading" v-model="isModalOpen" :form-data="formData" :type="modalType" @confirm="handleSaveOrUpdate"
       @delete="deleteData" />
 
     <DeleteModal v-model="isDeleteModalOpen" :count="selectedIds.length"
@@ -233,7 +233,6 @@ const fetchDiscounts = async () => {
 
 watch(selectedOutlet, () => {
   fetchDiscounts();
-  // fetchMerchants();
 }, { immediate: true });
 
 const openModal = (type, item = null) => {
@@ -304,10 +303,9 @@ const handleSaveOrUpdate = async (payload) => {
 
       const index = discounts.value.findIndex(item => item.id === id);
 
-      // 2. Jika datanya ketemu (index tidak -1), timpa dengan data yang baru
       if (index >= 0) {
         discounts.value[index] = {
-          id: id, // ID tetap sama
+          id: id,
           name: targetData.name,
           value: targetData.value,
           outlet_id: selectedOutlet.value.id
@@ -319,12 +317,10 @@ const handleSaveOrUpdate = async (payload) => {
       }
     }
 
-    // Jika proses API berhasil, tutup modal dan perbarui data di tabel
     isModalOpen.value = false;
 
   } catch (error) {
     console.error("Terjadi kesalahan:", error);
-    // Anda bisa memunculkan snackbar/alert error di sini jika ada
   } finally {
     isLoading.value = false;
   }
