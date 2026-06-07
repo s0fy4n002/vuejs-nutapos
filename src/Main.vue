@@ -157,7 +157,7 @@ import DiscountModal from "./components/DiscountModal.vue";
 import DeleteModal from "./components/DeleteModal.vue";
 import OutletModal from "./components/OutletModal.vue";
 import { storeToRefs } from "pinia";
-import { useOutletStore } from "./stores/outletStore.js";
+import { useOutletStore } from "./stores/outletStore";
 import LoadingOverlay from "./components/LoadingOverlay.vue";
 
 const BASE_API = import.meta.env.VITE_API_URL.replace(/\/discounts$/, '').replace(/\/merchants$/, '');
