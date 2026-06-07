@@ -13,7 +13,7 @@
               </div>
 
               <div v-if="selectedIds.length > 0" class="d-flex ga-3">
-                <v-btn variant="outlined" color="grey" rounded="lg" size="small" @click="selectedIds = []">
+                <v-btn variant="outlined" color="grey" rounded="lg" size="small" @click="outletStore.clearSelectedIds()">
                   Batalkan
                 </v-btn>
                 <v-btn color="error" rounded="lg" size="small" @click="isDeleteModalOpen = true">
@@ -160,19 +160,18 @@ const BASE_API = import.meta.env.VITE_API_URL.replace(/\/discounts$/, '').replac
 
 const DISCOUNT_API_URL = `${BASE_API}/discounts`;
 const OUTLET_API = `${BASE_API}/outlets`;
+const outletStore = useOutletStore()
+const { selectedOutlet, selectedIds } = storeToRefs(outletStore)
 
 const isModalOpen = ref(false);
 const isDeleteModalOpen = ref(false);
 const modalType = ref("");
-const selectedIds = ref([]);
 const page = ref(1);
 const itemsPerPage = ref(3);
-const isLoading = ref(false); // State untuk indikator loading
+const isLoading = ref(false);
 const searchQuery = ref('');
 
 const isOutletModalOpen = ref(false);
-const outletStore = useOutletStore()
-const { selectedOutlet } = storeToRefs(outletStore)
 
 const outletList = ref([
   { id: 1, name: 'Dapoer Rasa', address: 'Jl. Asia Afrika No. 25' },
@@ -329,6 +328,7 @@ const handleSaveOrUpdate = async (payload) => {
 const deleteData = async (payload) => {
   console.log('ID yang ditangkap parent:', payload.id);
 
+  isDeleteModalOpen.value = true; 
 
   if (!payload.id) return;
 
@@ -359,6 +359,8 @@ const deleteData = async (payload) => {
     console.error('Terjadi kesalahan saat menghapus:', error);
   } finally {
     isLoading.value = false;
+    isDeleteModalOpen.value = false;
+    outletStore.clearSelectedIds();
   }
 };
 
@@ -397,6 +399,7 @@ const handleBulkDelete = async () => {
   } finally {
     isDeleteModalOpen.value = false;
     isLoading.value = false;
+    outletStore.clearSelectedIds();
   }
 };
 

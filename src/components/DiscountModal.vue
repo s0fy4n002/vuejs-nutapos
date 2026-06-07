@@ -1,5 +1,7 @@
 <script setup>
 import { ref, watch, nextTick } from 'vue';
+import { useOutletStore } from '../stores/outletStore';
+import { storeToRefs } from 'pinia';
 
 const props = defineProps({
     type: String,
@@ -9,6 +11,7 @@ const props = defineProps({
 });
 
 const emit = defineEmits(['update:modelValue', 'confirm', 'delete']);
+const outletStore = useOutletStore()
 
 // 1. Tambahkan ref untuk mengontrol form
 const formRef = ref(null);
@@ -85,6 +88,7 @@ const handleSimpan = async () => {
 
 const handleDelete = () => {
     console.log('Mengirim event delete untuk ID:', props.formData?.id);
+    outletStore.setSelectedIds(props.formData?.id);
     emit('delete', {
         id: props.formData?.id,
         name: namaDiskon.value
