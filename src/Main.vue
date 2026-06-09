@@ -160,7 +160,7 @@ import { storeToRefs } from "pinia";
 import { useOutletStore } from "./stores/outletStore";
 import LoadingOverlay from "./components/LoadingOverlay.vue";
 
-const BASE_API = import.meta.env.VITE_API_URL.replace(/\/discounts$/, '').replace(/\/merchants$/, '');
+const BASE_API = "https://crudcrud.com/api/08495e5dc3864a63907627ee06223663";
 
 const DISCOUNT_API_URL = `${BASE_API}/discounts`;
 const OUTLET_API = `${BASE_API}/outlets`;
